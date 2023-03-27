@@ -64,14 +64,14 @@ def send_message(bot: telegram.Bot, message: str) -> None:
     """Отправляет сообщение в Telegram чат.
 
     Args:
-        bot (Bot): Экземпляр класса Bot.
+        bot (telegram.Bot): Экземпляр класса Bot.
         message (str): Cтрока с текстом сообщения.
     """
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
-        logging.debug(f'Удачная отправка сообщения "{message}" в Telegram')
+        logging.debug(f'Удачная отправка сообщения "{message}" в Telegram.')
     except Exception as error:
-        logging.error(f'Сбой при отправке сообщения в Telegram: {error}')
+        logging.error(f'Сбой при отправке сообщения в Telegram: {error}.')
 
 
 def get_api_answer(timestamp: int) -> dict:
@@ -93,7 +93,7 @@ def get_api_answer(timestamp: int) -> dict:
         )
         if response.status_code != HTTPStatus.OK:
             if response.status_code == HTTPStatus.UNAUTHORIZED:
-                raise HTTPException('Ошибка авторизации')
+                raise HTTPException('Ошибка авторизации.')
             if response.status_code == HTTPStatus.BAD_REQUEST:
                 raise HTTPException(
                     'Ошибка запроса к API сервиса Практикум.Домашка.',
@@ -176,7 +176,7 @@ def parse_status(homework: dict) -> str:
         )
     except (KeyError, TypeError) as error:
         raise InvalidInputDataError(
-            'Ключ или тип данных не соответсвует ожидаемым.',
+            'Ключ или тип данных не соответствует ожидаемым.',
         ) from error
 
 
