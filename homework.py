@@ -5,16 +5,16 @@ import time
 from http import HTTPStatus
 
 import requests
+import telegram
 from dotenv import load_dotenv
 from requests.exceptions import RequestException
-import telegram
 
 from exceptions import (
     HTTPException,
     InvalidHomeworkKey,
+    InvalidInputDataError,
     InvalidResponseKey,
     PracticumAPIRequestError,
-    InvalidInputDataError,
 )
 
 load_dotenv()
@@ -136,11 +136,13 @@ def check_response(response: dict) -> dict:
         Ответ API, который соответствует документации.
     """
     if not isinstance(response, dict):
-        raise TypeError('Невалидный тип ответа от API сервиса Практикум.Домашка.')
+        raise TypeError(
+            'Невалидный тип ответа от API сервиса Практикум.Домашка.',
+        )
     if 'homeworks' not in response:
         raise KeyError(
             'Невалидный формат ответа от сервиса Практикум.Домашка, '
-            'отсутствует необходимый ключ `homeworks`'
+            'отсутствует необходимый ключ `homeworks`',
         )
     if not isinstance(response['homeworks'], list):
         raise TypeError(
@@ -165,7 +167,8 @@ def parse_status(homework: dict) -> str:
     try:
         if homework['status'] not in HOMEWORK_VERDICTS.keys():
             logging.error(
-                'Неожиданный статус домашней работы, обнаруженный в ответе API.',
+                'Неожиданный статус домашней работы, обнаруженный '
+                'в ответе API.',
             )
             raise InvalidHomeworkKey('Статус не соответствует ожидаемым.')
         return (
