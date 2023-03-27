@@ -9,13 +9,7 @@ import telegram
 from dotenv import load_dotenv
 from requests.exceptions import RequestException
 
-from exceptions import (
-    HTTPException,
-    InvalidHomeworkKey,
-    InvalidInputDataError,
-    InvalidResponseKey,
-    PracticumAPIRequestError,
-)
+import exceptions
 
 load_dotenv()
 
@@ -93,12 +87,12 @@ def get_api_answer(timestamp: int) -> dict:
         )
         if response.status_code != HTTPStatus.OK:
             if response.status_code == HTTPStatus.UNAUTHORIZED:
-                raise HTTPException('Ошибка авторизации.')
+                raise exceptions.HTTPException('Ошибка авторизации.')
             if response.status_code == HTTPStatus.BAD_REQUEST:
-                raise HTTPException(
+                raise exceptions.HTTPException(
                     'Ошибка запроса к API сервиса Практикум.Домашка.',
                 )
-            raise HTTPException(
+            raise exceptions.HTTPException(
                 'Некорректный ответ от API сервиса Практикум.Домашка.',
             )
         if (
@@ -121,7 +115,7 @@ def get_api_answer(timestamp: int) -> dict:
         logging.error(
             'Сбой при отправке запроса к API сервиса Практикум.Домашка.',
         )
-        raise PracticumAPIRequestError(
+        raise exceptions.PracticumAPIRequestError(
             'Неоднозначное исключение во время обработки запроса.',
         ) from error
 
@@ -151,7 +145,9 @@ def check_response(response: dict) -> dict:
         )
     if set(response.keys()) != set(HOMEWORK_KEYS):
         logging.error('Отсутствуют ожидаемые ключи в ответе API.')
-        raise InvalidResponseKey('Ответ не соответствует документации.')
+        raise exceptions.InvalidResponseKey(
+            'Ответ не соответствует документации.',
+        )
     return response['homeworks'][0]
 
 
@@ -170,7 +166,9 @@ def parse_status(homework: dict) -> str:
                 'Неожиданный статус домашней работы, обнаруженный '
                 'в ответе API.',
             )
-            raise InvalidHomeworkKey('Статус не соответствует ожидаемым.')
+            raise exceptions.InvalidHomeworkKey(
+                'Статус не соответствует ожидаемым.',
+            )
         return (
             'Изменился статус проверки работы "'
             + homework['homework_name']
@@ -178,7 +176,7 @@ def parse_status(homework: dict) -> str:
             + HOMEWORK_VERDICTS[homework['status']]
         )
     except (KeyError, TypeError) as error:
-        raise InvalidInputDataError(
+        raise exceptions.InvalidInputDataError(
             'Ключ или тип данных не соответствует ожидаемым.',
         ) from error
 
