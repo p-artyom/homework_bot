@@ -28,13 +28,6 @@ HOMEWORK_VERDICTS = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.',
 }
 
-ENV_VARIABLES = ['PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID']
-
-HOMEWORK_KEYS = [
-    'homeworks',
-    'current_date',
-]
-
 logging.basicConfig(
     level=logging.DEBUG,
     filename='main.log',
@@ -43,15 +36,14 @@ logging.basicConfig(
 )
 
 
-def check_tokens() -> None:
-    """Проверяет доступность переменных."""
-    for variable in ENV_VARIABLES:
-        if os.getenv(variable) is None:
-            logging.critical('Отсутствуют обязательные переменные окружения.')
-            sys.exit()
-    if not PRACTICUM_TOKEN or not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        logging.critical('Отсутствуют обязательные переменные окружения.')
-        sys.exit()
+def check_tokens() -> bool:
+    """Проверяет доступность переменных.
+
+    Returns:
+        Значение True, если все необходимые переменные окружения доступны,
+        в противном случае False.
+    """
+    return all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID))
 
 
 def send_message(bot: telegram.Bot, message: str) -> None:
@@ -62,6 +54,9 @@ def send_message(bot: telegram.Bot, message: str) -> None:
         message (str): Cтрока с текстом сообщения.
     """
     try:
+        logging.debug(
+            f'Запущен процесс отправки сообщения "{message}" в Telegram.',
+        )
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logging.debug(f'Удачная отправка сообщения "{message}" в Telegram.')
     except Exception as error:
@@ -78,6 +73,7 @@ def get_api_answer(timestamp: int) -> dict:
         Ответ API, приведенный к типам данных Python.
     """
     try:
+        logging.debug('Запущен процесс отправки запроса к API.')
         response = requests.get(
             ENDPOINT,
             headers=HEADERS,
@@ -87,34 +83,17 @@ def get_api_answer(timestamp: int) -> dict:
         )
         if response.status_code != HTTPStatus.OK:
             if response.status_code == HTTPStatus.UNAUTHORIZED:
-                raise exceptions.HTTPException('Ошибка авторизации.')
+                raise exceptions.HTTPExceptionError('Ошибка авторизации.')
             if response.status_code == HTTPStatus.BAD_REQUEST:
-                raise exceptions.HTTPException(
+                raise exceptions.HTTPExceptionError(
                     'Ошибка запроса к API сервиса Практикум.Домашка.',
                 )
-            raise exceptions.HTTPException(
+            raise exceptions.HTTPExceptionError(
                 'Некорректный ответ от API сервиса Практикум.Домашка.',
             )
-        if (
-            'code' in response.json().keys()
-            and response['code'].json() == 'UnknownError'
-        ):
-            logging.error(
-                f'В качестве параметра `from_date` передано `{timestamp}`. '
-                'API такого не ожидает!',
-            )
-        elif (
-            'code' in response.json().keys()
-            and response['code'].json() == 'not_authenticated'
-        ):
-            logging.error(
-                'Запрос выполнен с недействительным или некорректным токеном.',
-            )
+        logging.debug('Удачная отправка запроса к API.')
         return response.json()
     except RequestException as error:
-        logging.error(
-            'Сбой при отправке запроса к API сервиса Практикум.Домашка.',
-        )
         raise exceptions.PracticumAPIRequestError(
             'Неоднозначное исключение во время обработки запроса.',
         ) from error
@@ -131,24 +110,26 @@ def check_response(response: dict) -> dict:
     """
     if not isinstance(response, dict):
         raise TypeError(
-            'Невалидный тип ответа от API сервиса Практикум.Домашка.',
+            'Невалидный тип ответа от API сервиса Практикум.Домашка, '
+            'response должен быть словарем.',
         )
     if 'homeworks' not in response:
         raise KeyError(
             'Невалидный формат ответа от сервиса Практикум.Домашка, '
             'отсутствует необходимый ключ `homeworks`',
         )
-    if not isinstance(response['homeworks'], list):
+    if 'current_date' not in response:
+        raise KeyError(
+            'Невалидный формат ответа от сервиса Практикум.Домашка, '
+            'отсутствует необходимый ключ `current_date`',
+        )
+    homeworks = response['homeworks']
+    if not isinstance(homeworks, list):
         raise TypeError(
             'Невалидный тип ответа от API сервиса Практикум.Домашка, '
             'ключ `homeworks` должен быть списком.',
         )
-    if set(response.keys()) != set(HOMEWORK_KEYS):
-        logging.error('Отсутствуют ожидаемые ключи в ответе API.')
-        raise exceptions.InvalidResponseKey(
-            'Ответ не соответствует документации.',
-        )
-    return response['homeworks'][0]
+    return homeworks
 
 
 def parse_status(homework: dict) -> str:
@@ -160,37 +141,49 @@ def parse_status(homework: dict) -> str:
     Returns:
         Сообщение, которое содержит информацию работы и её статус.
     """
-    try:
-        if homework['status'] not in HOMEWORK_VERDICTS.keys():
-            logging.error(
-                'Неожиданный статус домашней работы, обнаруженный '
-                'в ответе API.',
-            )
-            raise exceptions.InvalidHomeworkKey(
-                'Статус не соответствует ожидаемым.',
-            )
-        return (
-            'Изменился статус проверки работы "'
-            + homework['homework_name']
-            + '". '
-            + HOMEWORK_VERDICTS[homework['status']]
+    if 'homework_name' not in homework:
+        raise exceptions.InvalidHomeworkKeyError(
+            'Отсутствует необходимый ключ `homework_name` '
+            'в списке домашних работ.',
         )
-    except (KeyError, TypeError) as error:
-        raise exceptions.InvalidInputDataError(
-            'Ключ или тип данных не соответствует ожидаемым.',
-        ) from error
+    if 'status' not in homework:
+        raise exceptions.InvalidHomeworkKeyError(
+            'Отсутствует необходимый ключ `homework_status` '
+            'в списке домашних работ.',
+        )
+    homework_name, homework_status = homework.get(
+        'homework_name',
+    ), homework.get('status')
+    if homework_status not in HOMEWORK_VERDICTS.keys():
+        raise exceptions.InvalidHomeworkKeyError(
+            'Статус не соответствует ожидаемым.',
+        )
+    verdict = HOMEWORK_VERDICTS[homework_status]
+    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def main() -> None:
     """Основная логика работы бота-ассистента."""
-    check_tokens()
+    if not check_tokens():
+        logging.critical('Отсутствуют обязательные переменные окружения.')
+        sys.exit()
+    logging.debug('Все обязательные переменные окружения присутствуют.')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
+    last_status = ''
     while True:
         try:
             response = get_api_answer(timestamp)
-            if response:
-                send_message(bot, parse_status(check_response(response)))
+            homework = check_response(response)
+            if homework:
+                message = parse_status(homework[0])
+                time_now = time.strftime(
+                    '%d.%m.%Y г. %H:%M:%S',
+                    time.localtime(timestamp),
+                )
+                if message + f' Дата и время: {time_now}' != last_status:
+                    send_message(bot, message)
+                    last_status = message + f' Дата и время: {time_now}'
             else:
                 logging.debug('Новых статусов нет.')
         except Exception as error:

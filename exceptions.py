@@ -1,22 +1,18 @@
-class CheckOutProjectException(Exception):
+class CheckOutProjectExceptionError(Exception):
     """Базовое исключение для проекта."""
 
 
-class InvalidResponseKey(CheckOutProjectException):
-    """Исключение при проверки ответа на соответствие документации."""
-
-
-class InvalidHomeworkKey(CheckOutProjectException):
+class InvalidHomeworkKeyError(CheckOutProjectExceptionError):
     """Исключение при проверки статуса ответа."""
 
 
-class PracticumAPIRequestError(CheckOutProjectException):
+class PracticumAPIRequestError(CheckOutProjectExceptionError):
     """Неоднозначное исключение при обработке запроса API Практикум.Домашка."""
 
 
-class HTTPException(CheckOutProjectException):
+class HTTPExceptionError(CheckOutProjectExceptionError):
     """Исключение при получении ответа HTTP."""
 
 
-class InvalidInputDataError(CheckOutProjectException):
+class InvalidInputDataError(CheckOutProjectExceptionError):
     """Исключение при получении ответа HTTP."""
