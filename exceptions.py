@@ -12,7 +12,3 @@ class PracticumAPIRequestError(CheckOutProjectExceptionError):
 
 class HTTPExceptionError(CheckOutProjectExceptionError):
     """Исключение при получении ответа HTTP."""
-
-
-class InvalidInputDataError(CheckOutProjectExceptionError):
-    """Исключение при получении ответа HTTP."""
