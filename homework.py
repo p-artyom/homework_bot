@@ -19,6 +19,7 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 RETRY_PERIOD = 600
+RETRY_PERIOD = 6
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
@@ -83,7 +84,9 @@ def get_api_answer(timestamp: int) -> dict:
         )
         if response.status_code != HTTPStatus.OK:
             if response.status_code == HTTPStatus.UNAUTHORIZED:
-                raise exceptions.HTTPExceptionError('Ошибка авторизации.')
+                raise exceptions.HTTPExceptionError(
+                    'Ошибка авторизации к API сервиса Практикум.Домашка.',
+                )
             if response.status_code == HTTPStatus.BAD_REQUEST:
                 raise exceptions.HTTPExceptionError(
                     'Ошибка запроса к API сервиса Практикум.Домашка.',
@@ -170,7 +173,7 @@ def main() -> None:
     logging.debug('Все обязательные переменные окружения присутствуют.')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
-    last_status = ''
+    last_message = ''
     while True:
         try:
             response = get_api_answer(timestamp)
@@ -181,12 +184,15 @@ def main() -> None:
                     '%d.%m.%Y г. %H:%M:%S',
                     time.localtime(timestamp),
                 )
-                if message + f' Дата и время: {time_now}' != last_status:
+                if message + f' Дата и время: {time_now}' != last_message:
                     send_message(bot, message)
-                    last_status = message + f' Дата и время: {time_now}'
+                    last_message = message + f' Дата и время: {time_now}'
             else:
                 logging.debug('Новых статусов нет.')
         except Exception as error:
+            if str(error) != last_message:
+                send_message(bot, str(error))
+            last_message = str(error)
             logging.error(f'Сбой в работе программы: {error}')
         finally:
             time.sleep(RETRY_PERIOD)
